@@ -1,0 +1,6 @@
+# FILE FROM https://addons.mozilla.org/en-US/firefox/addon/cookies-txt/
+# HOST  SUB  PATH  SECURE  EXPIRES  NAME  VALUE
+
+www.rngdle.com	FALSE	/	TRUE	2147519648	__Secure-better-auth.session_token	TOKEN_HERE
+www.rngdle.com	FALSE	/	TRUE	2147519648	__Secure-better-auth.session_data	DATA_HERE
+www.rngdle.com	FALSE	/	TRUE	2147519648	rngdle_user	USER_HERE
