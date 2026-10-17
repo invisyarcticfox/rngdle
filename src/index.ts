@@ -1,25 +1,32 @@
 import 'dotenv/config'
-import { RNGdle } from './types'
-import { loadCookies, checkSession, execRoll, getRarity, rarityColours } from './rngdle'
-import { login, sendRoll } from './discord'
+import type { RNGdle } from './types'
+import { login, sendMsg, logout } from './discord'
+import { loadCookies, checkAuth, checkRolled, roll, getRarity, getColour } from './rngdle'
 
-const notifRarity = new Set<RNGdle.Rarity>([ 'mythic', 'anomaly', 'epic', 'rare' ])
+const notifRarities = new Set<RNGdle.Rarity>([ 'mythic', 'anomaly', 'epic' ])
 
 
 ;(async () => {
-  await login()
-
-  const cookie = await loadCookies()
-  if (!(await checkSession(cookie))) throw new Error('RNGdle authentication failed');
-  
-  const roll = await execRoll(cookie)
-  if (roll === null) throw new Error('RNGdle roll was null?')
-
-  const rarity = getRarity(roll.totalScore)
-  if (notifRarity.has(rarity)) await sendRoll(roll, rarity, rarityColours[rarity])
-  else console.log(`Roll today: ${rarity} ${roll.number}. Skipping notification`)
-  process.exit(0)
+  try {
+    await login()
+    
+    const cookies = await loadCookies()
+    if (!cookies) throw new Error('No cookies found')
+    
+    const auth = await checkAuth(cookies)
+    if (!auth) throw new Error('Could not authenticate with rngdle.com')
+    
+    const hasRolled = await checkRolled(cookies)
+    if (hasRolled) return console.log(`Already rolled a ${getRarity(hasRolled.totalScore)} ${hasRolled.number} today (${hasRolled.totalScore.toLocaleString()} EP)`)
+    
+    const result = await roll(cookies)
+    const rarity = getRarity(result.totalScore)
+    if (!notifRarities.has(rarity)) return console.log(`Rolled a ${rarity} ${result.number} today, too low :(`)
+    
+    const colour = getColour(rarity)
+    await sendMsg(result, rarity, colour)
+  } finally { await logout() }
 })().catch(error => {
-  console.error('Script failed:', error)
-  process.exit(1)
+  console.error('RNGdle script failed:', error)
+  process.exitCode = 1
 })
