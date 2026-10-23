@@ -3,5 +3,5 @@
     "bot": { "token": "" },
     "channel": { "id": "" }
   },
-  "cookies": { "file": "config/cookies.txt" }
+  "userAgent": { "" }
 }

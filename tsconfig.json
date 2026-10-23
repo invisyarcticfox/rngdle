@@ -14,5 +14,5 @@
     "types": [ "node" ]
   },
   "include": [ "src" ],
-  "exclude": [ "dist", "web", "data" ]
+  "exclude": [ "dist", "config" ]
 }

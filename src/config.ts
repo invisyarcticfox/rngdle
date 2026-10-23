@@ -8,7 +8,7 @@ type Config = {
     bot: { token: string }
     channel: { id: string }
   }
-  cookies: { file: string }
+  userAgent: string
 }
 
 export default JSON.parse(fs.readFileSync(config, 'utf-8')) as Config

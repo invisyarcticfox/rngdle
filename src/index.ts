@@ -1,27 +1,39 @@
 import 'dotenv/config'
-import type { RNGdle } from './types'
 import { login, sendMsg, logout } from './discord'
-import { loadCookies, checkAuth, checkRolled, roll, getRarity, getColour } from './rngdle'
+import { checkAuth, checkRolled, roll, getRarity, getColour } from './rngdle'
+import { loadCookies } from './cookies'
 
-const notifRarities = new Set<RNGdle.Rarity>([ 'mythic', 'anomaly', 'epic' ])
+type Retry = { attemps?:number, delay?:number, label?:string }
+
+async function retry<T>(fn:() => Promise<T>, { attemps = 5, delay = 10, label = 'Retry' }:Retry = {}):Promise<T> {
+  for (let attempt = 1; attempt <= attemps; attempt++) {
+    try {
+      return await fn()
+    } catch (error) {
+      console.error(`${label} attempt ${attempt}/${attemps} failed:`, error)
+      if (attempt === attemps) throw error
+      console.log(`Retrying ${label.toLowerCase()} in ${delay} seconds...`)
+      await new Promise(res => setTimeout(res, delay * 1000))
+    }
+  }
+
+  throw new Error(`${label} failed unexpectedly`)
+}
 
 
-;(async () => {
+(async () => {
   try {
     await login()
+    await loadCookies()
     
-    const cookies = await loadCookies()
-    if (!cookies) throw new Error('No cookies found')
-    
-    const auth = await checkAuth(cookies)
+    const auth = await retry(() => checkAuth(), { label: 'RNGdle authentication' })
     if (!auth) throw new Error('Could not authenticate with rngdle.com')
     
-    const hasRolled = await checkRolled(cookies)
+    const hasRolled = await retry(() => checkRolled(), { label: 'RNGdle roll check' })
     if (hasRolled) return console.log(`Already rolled a ${getRarity(hasRolled.totalScore)} ${hasRolled.number} today (${hasRolled.totalScore.toLocaleString()} EP)`)
     
-    const result = await roll(cookies)
+    const result = await retry(() => roll(), { label: 'RNGdle roll' })
     const rarity = getRarity(result.totalScore)
-    if (!notifRarities.has(rarity)) return console.log(`Rolled a ${rarity} ${result.number} today, too low :(`)
     
     const colour = getColour(rarity)
     await sendMsg(result, rarity, colour)
