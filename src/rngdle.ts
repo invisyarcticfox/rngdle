@@ -15,13 +15,13 @@ const colours:Record<RNGdle.Rarity, HexColorString> = {
   mythic: '#ff6467',
 } as const
 
+
 export function getRarity(score:number):RNGdle.Rarity {
   for (const [ threshold, rarity ] of rarities) if (score < threshold) return rarity
   return 'mythic'
 }
 
 export const getColour = (rarity:RNGdle.Rarity):HexColorString => colours[rarity]
-
 
 function parseResult(body:string):RNGdle.Roll {
   const line = body.split(/\r?\n/).find(l => l.startsWith('1:'))
@@ -31,6 +31,52 @@ function parseResult(body:string):RNGdle.Roll {
   if (typeof result !== 'object' || result === null) throw new Error('Unexpected roll format')
 
   return result as RNGdle.Roll
+}
+
+async function getRollActionId():Promise<string> {
+  console.log('Fetching RNGdle server action id..')
+
+  const res = await fetch(rngdleUrl, {
+    headers: {
+      Cookie: getCookieHeader(),
+      'User-Agent': config.userAgent
+    },
+    signal: AbortSignal.timeout(10_000)
+  })
+  if (!res.ok) throw new Error(`Home page fetch failed with HTTP ${res.status}`)
+  
+  const html = await res.text()
+  const chunkPths = [...new Set([...html.matchAll(/\/_next\/static\/[^"'\\\s]+?\.js(?:\?[^"'\\\s]*)?/g)].map(match => match[0]))]
+  if (!chunkPths.length) throw new Error('Found no JS chunks')
+
+  console.log(`Found ${chunkPths.length} JS chunks`)
+
+  const chunks = await Promise.all(chunkPths.map(async path => {
+    const url = new URL(path, rngdleUrl)
+    const res = await fetch(url, {
+      headers: {
+        Cookie: getCookieHeader(),
+        'User-Agent': config.userAgent
+      },
+      signal: AbortSignal.timeout(10_000)
+    })
+    if (!res.ok) return null
+    return { path, content: await res.text() }
+  }))
+
+  for (const chunk of chunks) {
+    if (!chunk) continue
+
+    const match = chunk.content.match(/createServerReference\)?\s*\(\s*['"]([a-f0-9]{40,})['"],[\s\S]{0,1000}?['"]rollDiceAction['"]\s*\)/)
+    if (match) {
+      const actionId = match[1]
+      console.log(`Found rollDiceAction in chunk ${chunk.path.split('/')[4]}`)
+      console.log(`Server action id: ${actionId}`)
+      return actionId
+    }
+  }
+
+  throw new Error(`Could not find rollDiceAction in ${chunks.length} JS chunks`)
 }
 
 
@@ -73,13 +119,15 @@ export async function checkRolled():Promise<RNGdle.Home['viewer']['lastRoll']|fa
 }
 
 export async function roll():Promise<RNGdle.Roll> {
+  const actionId = await getRollActionId()
+
   const res = await fetch(rngdleUrl, {
     method: 'POST',
     headers: {
       Cookie: getCookieHeader(),
       Accept: 'text/x-component',
       'Content-Type': 'text/plain;charset=UTF-8',
-      'Next-Action': '00bdc2450187355b643f1267646c94ed8e79b7d8ee'
+      'next-action': actionId,
     },
     body: '[]',
     signal: AbortSignal.timeout(30_000)

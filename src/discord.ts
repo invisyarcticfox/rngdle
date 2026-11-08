@@ -39,13 +39,12 @@ export async function sendMsg(roll:RNGdle.Roll, rarity:RNGdle.Rarity, colour:Hex
         .setColor(colour)
         .setFields([
           { name: 'Number', value: String(roll.number), inline: true },
-          { name: 'Total EP', value: roll.totalScore.toLocaleString(), inline: true },
+          { name: 'Total EP', value: roll.totalScore.toLocaleString('en-GB'), inline: true },
           { name: 'Badges', value: `${roll.badges.length} *(${roll.badges.filter(b => b.isNew).length} new)*`, inline: true },
-          { name: 'Old Lifetime EP', value: String(roll.lifetimeEp.before), inline: true },
-          { name: 'New Lifetime EP', value: String(roll.lifetimeEp.after), inline: true },
+          { name: 'Old Lifetime EP', value: roll.lifetimeEp.before.toLocaleString('en-GB'), inline: true },
+          { name: 'New Lifetime EP', value: roll.lifetimeEp.after.toLocaleString('en-GB'), inline: true },
           { name: 'Top Badge', value: [ `${topBadge.emoji} ${topBadge.label}`, `*${topBadge.description}*`, `${topBadge.score.toLocaleString()} EP` ].join('\n') },
         ])
-        .setFooter({ text: 'RNGdle.com', iconURL: 'https://cdn.discordapp.com/emojis/1560916754920775700.png' })
     ],
     components: [
       new ActionRowBuilder<ButtonBuilder>()
